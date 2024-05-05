@@ -4,9 +4,17 @@ require 'stringio'
 RSpec.describe CodeSnippetManager do
   let(:cli) { CodeSnippetManager.new }
   let(:storage) { instance_double(SnippetStorage) }
+  let(:snippets) {
+    [
+      {'title' => 'Original Title', 'code' => 'Original Code'},
+      {'title' => 'Second Snippet', 'code' => 'Second Code'}
+    ]
+  }
 
   before do
     allow(SnippetStorage).to receive(:new).and_return(storage)
+    allow(storage).to receive(:all_snippets).and_return(snippets)
+    allow(storage).to receive(:save_snippets)
   end
 
   context "when adding a new snippet" do
@@ -30,6 +38,21 @@ RSpec.describe CodeSnippetManager do
       allow($stdin).to receive(:gets).and_return("Example Title", "EOF")
       expect(storage).not_to receive(:add_snippet)
       expect { cli.add }.to output("Enter the title of the snippet (cannot be empty):\nEnter the code (end with 'EOF' on a new line):\nCode cannot be empty.\n").to_stdout
+    end
+  end
+
+  context "when editing a snippet" do
+    it "successfully edits a snippet's title and code" do
+      allow($stdin).to receive(:gets).and_return("2", "New Title", "New Code")
+      expect { cli.edit }.to output(/Enter the index of the snippet you want to edit:/).to_stdout
+      expect(snippets[1]['title']).to eq('New Title')
+      expect(snippets[1]['code']).to eq('New Code')
+      expect(storage).to have_received(:save_snippets)
+    end
+
+    it "handles invalid index input gracefully" do
+      allow($stdin).to receive(:gets).and_return("3")
+      expect { cli.edit }.to output(/Invalid index./).to_stdout
     end
   end
 

@@ -27,6 +27,31 @@ class CodeSnippetManager < Thor
     puts "Snippet added successfully."
   end
 
+  desc "edit", "Edit an existing snippet"
+  def edit
+    list
+    puts "Enter the index of the snippet you want to edit:"
+    index = $stdin.gets.to_i - 1
+
+    snippets = @storage.all_snippets
+    if index < 0 || index >= snippets.length
+      puts "Invalid index."
+      return
+    end
+
+    snippet = snippets[index]
+    puts "Enter a new title (current: #{snippet['title']}) or hit enter to keep:"
+    title = $stdin.gets.strip
+    snippet['title'] = title unless title.empty?
+
+    puts "Enter new code (hit enter to keep current):"
+    code = $stdin.gets.strip
+    snippet['code'] = code unless code.empty?
+
+    @storage.save_snippets
+    puts "Snippet updated successfully."
+  end
+
   desc "list", "List all snippets"
   def list
     snippets = @storage.all_snippets
