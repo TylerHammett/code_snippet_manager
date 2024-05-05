@@ -52,6 +52,23 @@ class CodeSnippetManager < Thor
     puts "Snippet updated successfully."
   end
 
+  desc "delete", "Delete an existing snippet"
+  def delete
+    list
+    puts "Enter the index of the snippet you want to delete:"
+    index = $stdin.gets.to_i - 1
+
+    snippets = @storage.all_snippets
+    if index < 0 || index >= snippets.length
+      puts "Invalid index."
+      return
+    end
+
+    snippets.delete_at(index)
+    @storage.save_snippets
+    puts "Snippet deleted successfully."
+  end
+
   desc "list", "List all snippets"
   def list
     snippets = @storage.all_snippets

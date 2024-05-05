@@ -20,7 +20,6 @@ RSpec.describe CodeSnippetManager do
   context "when adding a new snippet" do
     it "successfully adds a snippet when title and multi-line code are provided" do
       allow($stdin).to receive(:gets).and_return("Example Title", "Line 1", "Line 2", "EOF")
-      # Specify that the argument should be a single hash
       expect(storage).to receive(:add_snippet).with({title: "Example Title", code: "Line 1\nLine 2", tags: []})
       expected_output = "Enter the title of the snippet (cannot be empty):\n" +
                         "Enter the code (end with 'EOF' on a new line):\n" +
@@ -53,6 +52,24 @@ RSpec.describe CodeSnippetManager do
     it "handles invalid index input gracefully" do
       allow($stdin).to receive(:gets).and_return("3")
       expect { cli.edit }.to output(/Invalid index./).to_stdout
+    end
+  end
+
+  context "when deleting a snippet" do
+    it "successfully deletes a snippet given a valid index" do
+      allow($stdin).to receive(:gets).and_return("1")
+      expected_output = /Enter the index of the snippet you want to delete:\nSnippet deleted successfully./
+      expect(snippets.size).to eq(2)
+      expect { cli.delete }.to output(expected_output).to_stdout
+      expect(snippets.size).to eq(1)
+      expect(storage).to have_received(:save_snippets)
+    end
+
+    it "does not delete any snippet if the index is invalid" do
+      allow($stdin).to receive(:gets).and_return("3")
+      expect { cli.delete }.to output(/Invalid index./).to_stdout
+      expect(snippets.size).to eq(2)
+      expect(storage).not_to have_received(:save_snippets)
     end
   end
 
