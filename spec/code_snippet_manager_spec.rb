@@ -78,7 +78,7 @@ RSpec.describe CodeSnippetManager do
 
   context "when listing snippets" do
     it "lists available snippets" do
-      output = "1: Original Title\nOriginal Code\n\n2: Second Snippet\nSecond Code\n\n"
+      output = "1: Original Title\n#{highlight("Original Code")}\n\n2: Second Snippet\n#{highlight("Second Code")}\n\n"
       expect { cli.list }.to output(output).to_stdout
     end
 
@@ -91,7 +91,7 @@ RSpec.describe CodeSnippetManager do
   context "when searching for snippets" do
     it "displays matching snippets" do
       allow(storage).to receive(:all_snippets).and_return([{ 'title' => 'Keyword Title', 'code' => 'Relevant code snippet' }])
-      expected_output = "1: Keyword Title\nRelevant code snippet\n\n"
+      expected_output = "1: Keyword Title\n#{highlight("Relevant code snippet")}\n\n"
       expect { cli.search("Keyword") }.to output(expected_output).to_stdout
     end
 

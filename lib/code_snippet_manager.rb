@@ -1,5 +1,6 @@
 require 'thor'
 require 'tty-prompt'
+require 'rouge'
 require_relative 'snippet_storage'
 
 class CodeSnippetManager < Thor
@@ -7,6 +8,8 @@ class CodeSnippetManager < Thor
     super
     @storage = SnippetStorage.new
     @prompt = TTY::Prompt.new
+    @formatter = Rouge::Formatters::Terminal256.new
+    @default_lexer = Rouge::Lexers::Ruby.new
   end
 
   desc "add", "Add a new code snippet. Prompts you for title, code, and optional tags."
@@ -60,11 +63,9 @@ class CodeSnippetManager < Thor
       puts "No snippets found."
     else
       snippets.each_with_index do |snippet, index|
-        puts "#{index + 1}: #{snippet['title']}\n#{snippet['code']}\n\n"
+        puts "#{index + 1}: #{snippet['title']}\n#{highlight(snippet['code'])}\n\n"
       end
     end
-  rescue => e
-    puts "Failed to list snippets: #{e.message}"
   end
 
   desc "search", "Search snippets by keyword"
@@ -81,12 +82,17 @@ class CodeSnippetManager < Thor
 
   private
 
+  def highlight(code, language='ruby')
+    lexer = Rouge::Lexer.find_fancy(language, code) || @default_lexer
+    @formatter.format(lexer.lex(code))
+  end
+
   def prompt_for_input(prompt)
     @prompt.ask(prompt)
   end
 
   def prompt_for_index(prompt)
-    index = @prompt.ask(prompt, convert: :int) rescue nil 
+    index = @prompt.ask(prompt, convert: :int) rescue nil
     return index - 1 if index && index.between?(1, @storage.all_snippets.size)
 
     puts "Invalid index."
@@ -101,16 +107,12 @@ class CodeSnippetManager < Thor
     code_lines.join("\n")
   end
 
-  def search_snippet?(snippet, keyword)
-    [snippet['title'], snippet['code']].compact.any? { |text| text.include?(keyword) }
-  end
-
   def display_search_results(results)
     if results.empty?
       puts "No snippets found."
     else
       results.each_with_index do |snippet, index|
-        puts "#{index + 1}: #{snippet['title']}\n#{snippet['code']}\n\n"
+        puts "#{index + 1}: #{snippet['title']}\n#{highlight(snippet['code'])}\n\n"
       end
     end
   end
