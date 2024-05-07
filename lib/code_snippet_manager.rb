@@ -1,70 +1,54 @@
 require 'thor'
+require 'tty-prompt'
 require_relative 'snippet_storage'
 
 class CodeSnippetManager < Thor
   def initialize(*args)
     super
     @storage = SnippetStorage.new
+    @prompt = TTY::Prompt.new
   end
 
-  desc "add", "Add a new code snippet"
+  desc "add", "Add a new code snippet. Prompts you for title, code, and optional tags."
   def add
-    puts "Enter the title of the snippet (cannot be empty):"
-    title = $stdin.gets.strip
+    title = prompt_for_input("Enter the title of the snippet (cannot be empty):")
     return puts "Title cannot be empty." if title.empty?
 
     puts "Enter the code (end with 'EOF' on a new line):"
-    code_lines = []
-    while (line = $stdin.gets) && line.strip != 'EOF'
-      code_lines << line.rstrip
-    end
-    code = code_lines.join("\n")
-
+    code = capture_multiline_input
     return puts "Code cannot be empty." if code.empty?
 
-    snippet = { title: title, code: code, tags: [] }
+    tags = prompt_for_input("Enter tags (comma-separated):").split(',').map(&:strip)
+
+    snippet = { title: title, code: code, tags: tags }
     @storage.add_snippet(snippet)
     puts "Snippet added successfully."
   end
 
-  desc "edit", "Edit an existing snippet"
+  desc "edit", "Edit an existing snippet. Select by index to modify its title or code."
   def edit
     list
-    puts "Enter the index of the snippet you want to edit:"
-    index = $stdin.gets.to_i - 1
+    index = prompt_for_index("Enter the index of the snippet you want to edit:")
+    return if index.nil?
 
-    snippets = @storage.all_snippets
-    if index < 0 || index >= snippets.length
-      puts "Invalid index."
-      return
-    end
+    snippet = @storage.all_snippets[index]
+    title = @prompt.ask("Enter a new title or hit enter to keep current:", default: snippet['title'])
+    code = @prompt.ask("Enter new code or hit enter to keep current:", default: snippet['code'])
 
-    snippet = snippets[index]
-    puts "Enter a new title (current: #{snippet['title']}) or hit enter to keep:"
-    title = $stdin.gets.strip
-    snippet['title'] = title unless title.empty?
-
-    puts "Enter new code (hit enter to keep current):"
-    code = $stdin.gets.strip
-    snippet['code'] = code unless code.empty?
+    snippet['title'] = title
+    snippet['code'] = code
 
     @storage.save_snippets
     puts "Snippet updated successfully."
   end
 
-  desc "delete", "Delete an existing snippet"
+  desc "delete", "Delete an existing snippet."
   def delete
     list
-    puts "Enter the index of the snippet you want to delete:"
-    index = $stdin.gets.to_i - 1
+    index = prompt_for_index("Enter the index of the snippet you want to delete:")
+    return if index.nil?
 
-    snippets = @storage.all_snippets
-    if index < 0 || index >= snippets.length
-      puts "Invalid index."
-      return
-    end
-
-    snippets.delete_at(index)
+    @storage.all_snippets.delete_at(index)
     @storage.save_snippets
     puts "Snippet deleted successfully."
   end
@@ -76,11 +60,7 @@ class CodeSnippetManager < Thor
       puts "No snippets found."
     else
       snippets.each_with_index do |snippet, index|
-        title = snippet['title']
-        code = snippet['code']
-        puts "#{index + 1}: #{title}"
-        puts code
-        puts
+        puts "#{index + 1}: #{snippet['title']}\n#{snippet['code']}\n\n"
       end
     end
   rescue => e
@@ -88,21 +68,49 @@ class CodeSnippetManager < Thor
   end
 
   desc "search", "Search snippets by keyword"
-  def search(keyword)
+  def search(keyword, regex: false)
     return puts "Search keyword cannot be empty." if keyword.to_s.strip.empty?
 
     results = @storage.all_snippets.select do |snippet|
-      (snippet['title'] && snippet['title'].include?(keyword)) || (snippet['code'] && snippet['code'].include?(keyword))
+      pattern = regex ? Regexp.new(keyword) : /#{Regexp.escape(keyword)}/i
+      (snippet['title'] && snippet['title'].match?(pattern)) ||
+      (snippet['code'] && snippet['code'].match?(pattern))
     end
+    display_search_results(results)
+  end
+
+  private
+
+  def prompt_for_input(prompt)
+    @prompt.ask(prompt)
+  end
+
+  def prompt_for_index(prompt)
+    index = @prompt.ask(prompt, convert: :int) rescue nil 
+    return index - 1 if index && index.between?(1, @storage.all_snippets.size)
+
+    puts "Invalid index."
+    nil
+  end
+
+  def capture_multiline_input
+    code_lines = []
+    while (line = $stdin.gets) && line.strip != 'EOF'
+      code_lines << line.rstrip
+    end
+    code_lines.join("\n")
+  end
+
+  def search_snippet?(snippet, keyword)
+    [snippet['title'], snippet['code']].compact.any? { |text| text.include?(keyword) }
+  end
+
+  def display_search_results(results)
     if results.empty?
       puts "No snippets found."
     else
       results.each_with_index do |snippet, index|
-        title = snippet['title']
-        code = snippet['code']
-        puts "#{index + 1}: #{title}"
-        puts code
-        puts
+        puts "#{index + 1}: #{snippet['title']}\n#{snippet['code']}\n\n"
       end
     end
   end
